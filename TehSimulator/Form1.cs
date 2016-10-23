@@ -32,6 +32,9 @@ namespace TehSimulator
 
         private void parseData(byte[] msg)
         {
+            string hex = BitConverter.ToString(msg);
+            hex.Replace("-", " ");
+            logString("RCVD: " + hex, true);
             if (msg[0] == 0x4B)
             {
                 switch (msg[1])
@@ -73,7 +76,31 @@ namespace TehSimulator
                 this.Invoke(new Action<String>(logString), new Object[] { msg });
                 return;
             }
-            txtLog.Text += msg + Environment.NewLine;
+            String date = DateTime.Now.ToString("HH:mm:ss.fff");
+            txtLog.AppendText(date + " " + msg + Environment.NewLine);
+        }
+
+        private void logString(String msg, bool rcvd)
+        {
+            //setColor(rcvd);
+            logString(msg);
+        }
+
+        private void setColor(Boolean rcvd)
+        {
+            if (InvokeRequired)
+            {
+                this.Invoke(new Action<Boolean>(setColor), new Object[] { rcvd });
+                return;
+            }
+            if(rcvd)
+            {
+                txtLog.ForeColor = Color.Red;
+            }
+            else
+            {
+                txtLog.ForeColor = Color.Blue;
+            }
         }
 
         private void clearLog()
@@ -84,6 +111,28 @@ namespace TehSimulator
                 return;
             }
             txtLog.Text = "";
+        }
+
+        private void startMasureTmr()
+        {
+            if(InvokeRequired)
+            {
+                this.Invoke(new Action(startMasureTmr));
+                return;
+            }
+            tmrMeasurements.Interval = 100;
+            tmrMeasurements.Start();
+        }
+
+        private void startDelayTmr()
+        {
+            if (InvokeRequired)
+            {
+                this.Invoke(new Action(startDelayTmr));
+                return;
+            }
+            tmrDelay.Interval = 5000;
+            tmrDelay.Start();
         }
 
         private void bStartStatus_Click(object sender, EventArgs e)
@@ -107,9 +156,10 @@ namespace TehSimulator
             }
             else
             {
-                values[0] = 20 + 150 * (index - 40) - 6 * (index - 40) ^ 2 + rnd.Next(1, 40);
-                values[1] = 20 + 150 * (index - 40) - 6 * (index - 40) ^ 2 + rnd.Next(1, 40);
+                values[0] = 20 + 148 * (index - 40) - 6 * (index - 40) ^ 2 + rnd.Next(1, 150);
+                values[1] = 20 + 153 * (index - 40) - 6 * (index - 40) ^ 2 + rnd.Next(1, 150);
             }
+            index++;
             return values;
         }
 
@@ -143,50 +193,54 @@ namespace TehSimulator
 
         private void startMerenja()
         {
+            index = 0;
+            logString("START MERENJA", false);
             status = TehStatus.TEH_IN_PROGRESS;
-            tmrDelay.Interval = 5000;
-            tmrDelay.Start();
+            startDelayTmr();
+            byte[] msg = getWeightMsg();
+            writeWithLog(msg);
         }
 
         private void stopMerenja()
         {
             tmrMeasurements.Stop();
             status = TehStatus.IDLE;
+            logString("STOP MERENJA", false);
         }
 
         private void zaustaviMerenje()
         {
+            logString("ZAUSTAVI MERENJE", false);
             tmrMeasurements.Stop();
             byte[] msg = new byte[] { 0xFE, 0x4B, 0x02, 0xFF};
-            serManager.writeData(msg);
+            writeWithLog(msg);
             status = TehStatus.IDLE;
         }
 
         private void odgovoriTaraMasa()
         {
+            logString("ODGOVOR TARA MASA", false);
             byte[] msg = new byte[] {0xFE, 0x4B, 0x4D, 0x30, 0xFF };
-            serManager.writeData(msg);
+            writeWithLog(msg);
         }
 
         private void odgovoriTaraSila()
         {
+            logString("ODGOVOR TARA SILA", false);
             byte[] msg = new byte[] { 0xFE, 0x4B, 0x46, 0x30, 0x2D, 0x30, 0xFF};
-            serManager.writeData(msg);
+            writeWithLog(msg);
         }
 
         private void tmrDelay_Tick(object sender, EventArgs e)
         {
             tmrDelay.Stop();
-            tmrMeasurements.Interval = 100;
-            tmrMeasurements.Start();
+            startMasureTmr();
         }
 
         private void tmrMeasurements_Tick(object sender, EventArgs e)
         {
             byte[] msg = getForceMsg(calculateForce());
-            serManager.writeData(msg);
-            tmrMeasurements.Stop();
-            tmrMeasurements.Start();
+            writeWithLog(msg);
             if (index > 140)
             {
                 zaustaviMerenje();
@@ -204,6 +258,28 @@ namespace TehSimulator
             {
                 msg = new byte[] { 0xFE, 0x4B, 0x03, 0x30, 0x30, 0x30, 0x30, 0xFF };
             }
+            if (status == TehStatus.IDLE)
+            {
+                writeWithLog(msg);
+            }
+        }
+
+        private void bClearLog_Click(object sender, EventArgs e)
+        {
+            clearLog();
+        }
+
+        private void writeWithLog(byte[] msg)
+        {
+            logString("SEND: " + stringFromHex(msg), false);
+            serManager.writeData(msg);
+        }
+
+        private string stringFromHex(byte[] msg)
+        {
+            string hex = BitConverter.ToString(msg);
+            hex.Replace("-", " ");
+            return hex;
         }
     }
 }

@@ -74,7 +74,7 @@ namespace TehSimulator.Utils
             {
                 try
                 {
-                    serialPort.PortName = "COM7";
+                    serialPort.PortName = "COM1";
                     serialPort.BaudRate = 115200;
                     serialPort.Parity = System.IO.Ports.Parity.None;
                     serialPort.StopBits = System.IO.Ports.StopBits.One;
